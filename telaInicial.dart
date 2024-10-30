@@ -1,10 +1,13 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
+import 'DatabaseHelper.dart';
 
 class Item {
-  final String nome;
+  final String name;
   final double preco;
 
-  Item(this.nome, this.preco);
+  Item(this.name, this.preco);
 }
 
 void main() {
@@ -15,10 +18,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Comanda Digital',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(),
       home: ComandaManager(),
     );
   }
@@ -30,6 +32,7 @@ class ComandaManager extends StatefulWidget {
 }
 
 class _ComandaManagerState extends State<ComandaManager> {
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
   final List<Item> itens = [
     Item('Heineken', 12.0),
     Item('Budweiser', 10.0),
@@ -42,26 +45,44 @@ class _ComandaManagerState extends State<ComandaManager> {
 
   final List<List<Item>> comandas = [[]];
 
+  @override
+  void initState() {
+    super.initState();
+    loadItems();
+  }
+
+  void loadItems() async {
+    setState(() {});
+  }
+
+  void salvarComanda(List<Item> comanda) async {
+    await _databaseHelper.insertComanda(comanda);
+  }
+
   void adicionarComanda() {
     setState(() {
-      comandas.add([]); // Adiciona uma nova comanda
+      comandas.add([]);
     });
   }
 
   void adicionarItem(Item item, int index) {
     setState(() {
-      comandas[index].add(item); // Adiciona item à comanda
+      comandas[index].add(item);
     });
   }
 
   void removerItem(Item item, int comandaIndex) {
     setState(() {
-      comandas[comandaIndex].remove(item); // Remove item da comanda
+      comandas[comandaIndex].remove(item);
     });
   }
 
   double calcularTotal(int index) {
     return comandas[index].fold(0.0, (total, item) => total + item.preco);
+  }
+
+  void zerarComanda(int index) async {
+    return comandas[index].clear();
   }
 
   void navegarParaComanda(int index) {
@@ -74,22 +95,31 @@ class _ComandaManagerState extends State<ComandaManager> {
           onAdicionarItem: (item) => adicionarItem(item, index),
           onRemoverItem: (item) => removerItem(item, index),
           calcularTotal: () => calcularTotal(index),
+          onSalvarComanda: salvarComanda,
+          onZerarComanda: zerarComanda,
         ),
       ),
     ).then((_) {
-      setState(() {}); // Atualiza o estado após retornar da tela
+      setState(() {});
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color.fromARGB(255, 224, 110, 4),
       appBar: AppBar(
-        title: Text('Comanda Digital'),
+        centerTitle: true,
+        backgroundColor: Color.fromARGB(255, 184, 90, 3),
+        title: Text(
+          'Comanda Digital',
+          style: TextStyle(color: Colors.white, fontSize: 35.0),
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.add),
-            onPressed: adicionarComanda, // Adiciona uma nova comanda
+            onPressed: adicionarComanda,
+            color: Colors.white, // Adiciona uma nova comanda
           ),
         ],
       ),
@@ -98,8 +128,9 @@ class _ComandaManagerState extends State<ComandaManager> {
         itemBuilder: (context, index) {
           return ListTile(
             title: Text('Comanda ${index + 1}'),
-            subtitle:
-                Text('Total: R\$ ${calcularTotal(index).toStringAsFixed(2)}'),
+            subtitle: Text(
+              'Total: R\$ ${calcularTotal(index).toStringAsFixed(2)}',
+            ),
             trailing: IconButton(
               icon: Icon(Icons.navigate_next),
               onPressed: () =>
@@ -119,19 +150,30 @@ class ComandaScreen extends StatelessWidget {
   final Function(Item) onRemoverItem;
   final double Function() calcularTotal;
 
+  var onSalvarComanda;
+
+  var onZerarComanda;
+
   ComandaScreen({
     required this.itens,
     required this.comanda,
     required this.onAdicionarItem,
     required this.onRemoverItem,
     required this.calcularTotal,
+    required this.onSalvarComanda,
+    required this.onZerarComanda,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color.fromARGB(255, 224, 110, 4),
       appBar: AppBar(
-        title: Text('Comanda'),
+        backgroundColor: Color.fromARGB(255, 184, 90, 3),
+        title: Text(
+          'Comanda',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: Column(
         children: [
@@ -140,7 +182,7 @@ class ComandaScreen extends StatelessWidget {
               itemCount: itens.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  title: Text(itens[index].nome),
+                  title: Text(itens[index].name),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -151,8 +193,9 @@ class ComandaScreen extends StatelessWidget {
                           onAdicionarItem(itens[index]);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content:
-                                    Text('${itens[index].nome} adicionado!')),
+                              content: Text('${itens[index].name} adicionado!'),
+                              duration: Duration(seconds: 1),
+                            ),
                           );
                         },
                       ),
@@ -168,7 +211,7 @@ class ComandaScreen extends StatelessWidget {
               itemCount: comanda.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  title: Text(comanda[index].nome),
+                  title: Text(comanda[index].name),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -176,11 +219,12 @@ class ComandaScreen extends StatelessWidget {
                       IconButton(
                         icon: Icon(Icons.remove_circle),
                         onPressed: () {
-                          onRemoverItem(comanda[index]);
+                          onRemoverItem(itens[index]);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content:
-                                    Text('${comanda[index].nome} removido!')),
+                              content: Text('${comanda[index].name} removido!'),
+                              duration: Duration(seconds: 1),
+                            ),
                           );
                         },
                       ),
@@ -197,6 +241,33 @@ class ComandaScreen extends StatelessWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
+          ElevatedButton(
+            onPressed: () {
+              onSalvarComanda(comanda);
+              onZerarComanda;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Comanda salva com sucesso!'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            child: Text('Fechar conta',
+                style: TextStyle(
+                  fontSize: 20.0,
+                )),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.black,
+              backgroundColor: const Color.fromARGB(255, 27, 246, 38),
+              padding: EdgeInsets.symmetric(
+                  vertical: 16.0, horizontal: 32.0), // Padding
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(20.0), // Bordas arredondadas
+              ),
+              elevation: 5, // Sombra
+            ),
+          )
         ],
       ),
     );
